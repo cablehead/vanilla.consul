@@ -15,7 +15,8 @@ class TestConsul(object):
         c = h.consul()
 
         key = uuid.uuid4().hex
-        assert c.kv.get(key).recv() is None
+        index, data = c.kv.get(key).recv()
+        assert data is None
 
         assert c.kv.put(key, 'bar').recv()
         index, data = c.kv.get(key).recv()
@@ -29,12 +30,33 @@ class TestConsul(object):
         assert sorted([x['Value'] for x in data]) == ['bar', 'bar1', 'bar2']
 
         assert c.kv.delete(key).recv()
-        assert c.kv.get(key).recv() is None
+        index, data = c.kv.get(key).recv()
+        assert data is None
         index, data = c.kv.get(key, recurse=True).recv()
         assert sorted([x['Value'] for x in data]) == ['bar1', 'bar2']
 
         assert c.kv.delete(key, recurse=True).recv()
-        assert c.kv.get(key, recurse=True).recv() is None
+        index, data = c.kv.get(key, recurse=True).recv()
+        assert data is None
+
+    def test_kv_subscribe(self):
+        h = vanilla.Hub()
+
+        key = uuid.uuid4().hex
+
+        @h.spawn
+        def _():
+            c = h.consul()
+            for i in xrange(3):
+                h.sleep(10)
+                c.kv.put(key, i).recv()
+
+        c = h.consul()
+        watch = c.kv.subscribe(key)
+        assert watch.recv() is None
+        assert watch.recv()['Value'] == 0
+        assert watch.recv()['Value'] == 1
+        assert watch.recv()['Value'] == 2
 
     def test_connect(self):
         print

@@ -28,27 +28,39 @@ class Consul(object):
         def __init__(self, agent):
             self.agent = agent
 
-        def get(self, key, recurse=False):
+        def get(self, key, index=None, recurse=False):
             assert not key.startswith('/')
 
             params = {}
+            if index:
+                params['index'] = index
             if recurse:
                 params['recurse'] = '1'
+
             ch = self.agent.conn.get('/v1/kv/%s' % key, params=params)
 
             @ch.map
             def _(response):
                 data = response.consume()
                 if response.status.code == 404:
-                    # TODO: pretty sure this should raise
-                    return None
-                data = json.loads(data)
-                for item in data:
-                    item['Value'] = self.agent.loads(
-                        base64.b64decode(item['Value']))
-                if not recurse:
-                    data = data[0]
+                    data = None
+                else:
+                    data = json.loads(data)
+                    for item in data:
+                        item['Value'] = self.agent.loads(
+                            base64.b64decode(item['Value']))
+                    if not recurse:
+                        data = data[0]
                 return response.headers['X-Consul-Index'], data
+            return _
+
+        def subscribe(self, key):
+            @self.agent.hub.producer
+            def _(sender):
+                index = None
+                while True:
+                    index, data = self.get(key, index=index).recv()
+                    sender.send(data)
             return _
 
         def put(self, key, value):
