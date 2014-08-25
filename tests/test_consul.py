@@ -50,14 +50,13 @@ class TestConsul(object):
         print
         """
 
-        """
+        c = h.consul()
         response = c.agent.service.register(
             'zhub', service_id='n2', ttl='10s').recv()
         print response.status
         print response.headers
         print repr(response.consume())
         print
-        """
 
         """
         response = c.agent.services().recv()
@@ -67,22 +66,36 @@ class TestConsul(object):
         print
         """
 
-        return
-
         @h.spawn
         def _():
             c = h.consul()
             index = None
             while True:
                 response = c.health.checks('zhub', index=index).recv()
-                print response.status
-                print response.headers
                 index = response.headers['X-Consul-Index']
-                print
                 data = json.loads(response.consume())
-                for item in data:
-                    print item
-                print
+                print data
+
+        @h.spawn
+        def _():
+            c = h.consul()
+            index = None
+            while True:
+                response = c.health.service(
+                    'zhub', index=index, passing=True).recv()
+                index = response.headers['X-Consul-Index']
+                data = json.loads(response.consume())
+                print data
+
+        @h.spawn
+        def _():
+            c = h.consul()
+            index = None
+            while True:
+                response = c.catalog.service('zhub', index=index).recv()
+                index = response.headers['X-Consul-Index']
+                data = json.loads(response.consume())
+                print data
 
         h.sleep(1000)
 

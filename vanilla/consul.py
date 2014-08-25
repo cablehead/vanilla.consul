@@ -21,6 +21,7 @@ class Consul(object):
 
         self.agent = Consul.Agent(self.hub, self.conn)
         self.health = Consul.Health(self.hub, self.conn)
+        self.catalog = Consul.Health(self.hub, self.conn)
         self.kv = Consul.KV(self)
 
     class KV(object):
@@ -119,13 +120,31 @@ class Consul(object):
             def ttl_pass(self, check_id):
                 return self.conn.get('/v1/agent/check/pass/%s' % check_id)
 
+    class Catalog(object):
+        def __init__(self, hub, conn):
+            self.hub = hub
+            self.conn = conn
+
+        def service(self, service, index=None):
+            params = {}
+            if index:
+                params['index'] = index
+            return self.conn.get(
+                '/v1/catalog/service/%s' % service, params=params)
+
     class Health(object):
         def __init__(self, hub, conn):
             self.hub = hub
             self.conn = conn
 
-        def service(self, service):
-            return self.conn.get('/v1/health/service/%s' % service)
+        def service(self, service, index=None, passing=None):
+            params = {}
+            if index:
+                params['index'] = index
+            if passing:
+                params['passing'] = '1'
+            return self.conn.get(
+                '/v1/health/service/%s' % service, params=params)
 
         def checks(self, service, index=None):
             params = {}
