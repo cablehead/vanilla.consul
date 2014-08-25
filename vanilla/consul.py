@@ -1,5 +1,5 @@
 """
-Vanilla Consul(.io) Client
+Vanilla Python Consul(.io) Client
 """
 
 
