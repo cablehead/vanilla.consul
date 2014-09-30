@@ -34,3 +34,8 @@ class HTTPClient(object):
         r = self.hub.http.connect(
             self.base_uri).put(path, params=params, data=data)
         return r.map(self.response).map(callback)
+
+    def delete(self, callback, path, params=None):
+        r = self.hub.http.connect(
+            self.base_uri).delete(path, params=params)
+        return r.map(self.response).map(callback)

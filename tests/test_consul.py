@@ -18,6 +18,22 @@ class TestConsul(object):
         index, data = c.kv.get('foo').recv()
         assert data['Value'] == 'bar'
 
+    def test_kv_delete(self, consul_port):
+        h = vanilla.Hub()
+        c = h.consul(port=consul_port)
+        c.kv.put('foo1', '1').recv()
+        c.kv.put('foo2', '2').recv()
+        c.kv.put('foo3', '3').recv()
+        index, data = c.kv.get('foo', recurse=True).recv()
+        assert [x['Key'] for x in data] == ['foo1', 'foo2', 'foo3']
+
+        assert c.kv.delete('foo2').recv() is True
+        index, data = c.kv.get('foo', recurse=True).recv()
+        assert [x['Key'] for x in data] == ['foo1', 'foo3']
+        assert c.kv.delete('foo', recurse=True).recv() is True
+        index, data = c.kv.get('foo', recurse=True).recv()
+        assert data is None
+
     def test_kv_subscribe(self, consul_port):
         h = vanilla.Hub()
         c = h.consul(port=consul_port)
