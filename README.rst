@@ -32,7 +32,7 @@ Example
                 c.health.check.ttl_pass('service:foo:1').recv()
                 h.sleep(5000)
 
-        # maintain our internal configuration state will all available nodes
+        # maintain our internal configuration state with all available nodes
         # providing the foo service
         index = None
         while True:
