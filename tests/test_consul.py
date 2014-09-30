@@ -1,127 +1,139 @@
+import time
+
 import vanilla
 
-import json
-import uuid
 
-# from pprint import pprint as p
-
-import logging
-logging.basicConfig()
+def test_plugin():
+    h = vanilla.Hub()
+    h.consul()
 
 
 class TestConsul(object):
-    def test_kv(self):
+    def test_kv(self, consul_port):
         h = vanilla.Hub()
-        c = h.consul()
-
-        key = uuid.uuid4().hex
-        index, data = c.kv.get(key).recv()
+        c = h.consul(port=consul_port)
+        index, data = c.kv.get('foo').recv()
         assert data is None
-
-        assert c.kv.put(key, 'bar').recv()
-        index, data = c.kv.get(key).recv()
+        assert c.kv.put('foo', 'bar').recv() is True
+        index, data = c.kv.get('foo').recv()
         assert data['Value'] == 'bar'
-        index, data = c.kv.get(key, recurse=True).recv()
-        assert [x['Value'] for x in data] == ['bar']
 
-        assert c.kv.put(key+'1', 'bar1').recv()
-        assert c.kv.put(key+'2', 'bar2').recv()
-        index, data = c.kv.get(key, recurse=True).recv()
-        assert sorted([x['Value'] for x in data]) == ['bar', 'bar1', 'bar2']
-
-        assert c.kv.delete(key).recv()
-        index, data = c.kv.get(key).recv()
-        assert data is None
-        index, data = c.kv.get(key, recurse=True).recv()
-        assert sorted([x['Value'] for x in data]) == ['bar1', 'bar2']
-
-        assert c.kv.delete(key, recurse=True).recv()
-        index, data = c.kv.get(key, recurse=True).recv()
-        assert data is None
-
-    def test_kv_subscribe(self):
+    def test_kv_subscribe(self, consul_port):
         h = vanilla.Hub()
+        c = h.consul(port=consul_port)
 
-        key = uuid.uuid4().hex
+        def put():
+            c.kv.put('foo', 'bar').recv()
+        h.spawn_later(100, put)
 
-        @h.spawn
-        def _():
-            c = h.consul()
-            for i in xrange(3):
-                h.sleep(10)
-                c.kv.put(key, i).recv()
+        index, data = c.kv.get('foo').recv()
+        assert data is None
+        index, data = c.kv.get('foo', index=index).recv()
+        assert data['Value'] == 'bar'
 
-        c = h.consul()
-        watch = c.kv.subscribe(key)
-        assert watch.recv() is None
-        assert watch.recv()['Value'] == 0
-        assert watch.recv()['Value'] == 1
-        assert watch.recv()['Value'] == 2
-
-    def test_connect(self):
-        print
-        print
-
+    def test_agent_self(self, consul_port):
         h = vanilla.Hub()
+        c = h.consul(port=consul_port)
+        assert set(c.agent.self().recv().keys()) == set(['Member', 'Config'])
 
-        """
-        response = c.agent.service.deregister('zhub').recv()
-        print response.status
-        print response.headers
-        print repr(response.consume())
-        print
-        """
+    def test_agent_services(self, consul_port):
+        h = vanilla.Hub()
+        c = h.consul(port=consul_port)
+        assert c.agent.services().recv() == {}
+        assert c.agent.service.register('foo').recv() is True
+        assert c.agent.services().recv() == {
+            'foo': {'Port': 0, 'ID': 'foo', 'Service': 'foo', 'Tags': None}}
+        assert c.agent.service.deregister('foo').recv() is True
+        assert c.agent.services().recv() == {}
 
-        c = h.consul()
-        response = c.agent.service.register(
-            'zhub', service_id='n2', ttl='10s').recv()
-        print response.status
-        print response.headers
-        print repr(response.consume())
-        print
+    def test_health_service(self, consul_port):
+        h = vanilla.Hub()
+        c = h.consul(port=consul_port)
 
-        """
-        response = c.agent.services().recv()
-        print response.status
-        print response.headers
-        p(json.loads(response.consume()))
-        print
-        """
+        # check there are no nodes for the service 'foo'
+        index, nodes = c.health.service('foo').recv()
+        assert nodes == []
+
+        # register two nodes, one with a long ttl, the other shorter
+        c.agent.service.register('foo', service_id='foo:1', ttl='10s').recv()
+        c.agent.service.register('foo', service_id='foo:2', ttl='100ms').recv()
+
+        time.sleep(10/1000.0)
+
+        # check the nodes show for the /health/service endpoint
+        index, nodes = c.health.service('foo').recv()
+        assert [node['Service']['ID'] for node in nodes] == ['foo:1', 'foo:2']
+
+        # but that they aren't passing their health check
+        index, nodes = c.health.service('foo', passing=True).recv()
+        assert nodes == []
+
+        # ping the two node's health check
+        c.health.check.ttl_pass('service:foo:1').recv()
+        c.health.check.ttl_pass('service:foo:2').recv()
+
+        time.sleep(10/1000.0)
+
+        # both nodes are now available
+        index, nodes = c.health.service('foo', passing=True).recv()
+        assert [node['Service']['ID'] for node in nodes] == ['foo:1', 'foo:2']
+
+        # wait until the short ttl node fails
+        time.sleep(120/1000.0)
+
+        # only one node available
+        index, nodes = c.health.service('foo', passing=True).recv()
+        assert [node['Service']['ID'] for node in nodes] == ['foo:1']
+
+        # ping the failed node's health check
+        c.health.check.ttl_pass('service:foo:2').recv()
+
+        time.sleep(10/1000.0)
+
+        # check both nodes are available
+        index, nodes = c.health.service('foo', passing=True).recv()
+        assert [node['Service']['ID'] for node in nodes] == ['foo:1', 'foo:2']
+
+        # deregister the nodes
+        c.agent.service.deregister('foo:1').recv()
+        c.agent.service.deregister('foo:2').recv()
+
+        time.sleep(10/1000.0)
+
+        index, nodes = c.health.service('foo').recv()
+        assert nodes == []
+
+    def test_health_service_subscribe(self, consul_port):
+        h = vanilla.Hub()
+        c = h.consul(port=consul_port)
+
+        class Config(object):
+            pass
+
+        config = Config()
 
         @h.spawn
-        def _():
-            c = h.consul()
+        def monitor():
+            c.agent.service.register(
+                'foo', service_id='foo:1', ttl='20ms').recv()
+
             index = None
             while True:
-                response = c.health.checks('zhub', index=index).recv()
-                index = response.headers['X-Consul-Index']
-                data = json.loads(response.consume())
-                print data
+                index, nodes = c.health.service(
+                    'foo', index=index, passing=True).recv()
+                config.nodes = [node['Service']['ID'] for node in nodes]
 
-        @h.spawn
-        def _():
-            c = h.consul()
-            index = None
-            while True:
-                response = c.health.service(
-                    'zhub', index=index, passing=True).recv()
-                index = response.headers['X-Consul-Index']
-                data = json.loads(response.consume())
-                print data
+        # give the monitor a chance to register the service
+        h.sleep(50)
+        assert config.nodes == []
 
-        @h.spawn
-        def _():
-            c = h.consul()
-            index = None
-            while True:
-                response = c.catalog.service('zhub', index=index).recv()
-                index = response.headers['X-Consul-Index']
-                data = json.loads(response.consume())
-                print data
+        # ping the service's health check
+        c.health.check.ttl_pass('service:foo:1').recv()
+        h.sleep(10)
+        assert config.nodes == ['foo:1']
 
-        h.sleep(1000)
+        # the service should fail
+        h.sleep(20)
+        assert config.nodes == []
 
-        c = h.consul()
-        c.agent.check.ttl_pass('service:n2').recv()
-
-        h.sleep(15000)
+        c.agent.service.deregister('foo:1').recv()
