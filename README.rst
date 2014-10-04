@@ -1,7 +1,7 @@
-`Vanilla Python`_ client for `Consul.io`_
-=========================================
+`Vanilla`_ client for `Consul.io`_
+==================================
 
-This is an adaptor/plugin for Vanilla based on the `python-consul`_ library.
+This is an adaptor/plugin for `Vanilla`_ based on the `python-consul`_ library.
 
 Usage is the same as the `standard API`_ except that all API calls return a
 Vanilla pipe, which can be *recv*'ed on to receive the Consul response.
@@ -44,7 +44,7 @@ Example
 
 
 .. _Consul.io: http://www.consul.io/
-.. _Vanilla Python: https://github.com/cablehead/vanilla
+.. _Vanilla: https://github.com/cablehead/vanilla
 .. _python-consul: http://python-consul.readthedocs.org
 .. _standard API:
     http://python-consul.readthedocs.org/en/latest/#api-documentation
