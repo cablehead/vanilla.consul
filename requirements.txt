@@ -1,2 +1,2 @@
 vanilla
-python-consul
+python-consul==0.3.0
