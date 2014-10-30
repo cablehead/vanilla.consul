@@ -36,6 +36,7 @@ setup(
     author_email='andy@thecablelounge.com',
     install_requires=requirements,
     packages=find_packages(),
+    namespace_packages=['vanilla'],
     url='https://github.com/cablehead/vanilla.consul',
     license='MIT',
     description=description,
