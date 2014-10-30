@@ -55,12 +55,11 @@ class TestConsul(object):
     def test_agent_services(self, consul_port):
         h = vanilla.Hub()
         c = h.consul(port=consul_port)
-        assert c.agent.services().recv() == {}
+        assert c.agent.services().recv().keys() == ['consul']
         assert c.agent.service.register('foo').recv() is True
-        assert c.agent.services().recv() == {
-            'foo': {'Port': 0, 'ID': 'foo', 'Service': 'foo', 'Tags': None}}
+        assert set(c.agent.services().recv().keys()) == set(['consul', 'foo'])
         assert c.agent.service.deregister('foo').recv() is True
-        assert c.agent.services().recv() == {}
+        assert c.agent.services().recv().keys() == ['consul']
 
     def test_health_service(self, consul_port):
         h = vanilla.Hub()
