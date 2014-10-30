@@ -42,6 +42,13 @@ Example
 
     # make use of config.nodes
 
+Installation
+------------
+
+::
+
+        pip install vanilla.consul
+
 
 .. _Consul.io: http://www.consul.io/
 .. _Vanilla: https://github.com/cablehead/vanilla
