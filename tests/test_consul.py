@@ -1,5 +1,8 @@
 import time
 
+import pytest
+import consul
+
 import vanilla
 
 
@@ -152,3 +155,18 @@ class TestConsul(object):
         assert config.nodes == []
 
         c.agent.service.deregister('foo:1').recv()
+
+    def test_acl(self, acl_consul):
+        h = vanilla.Hub()
+        c = h.consul(port=acl_consul.port, token=acl_consul.token)
+        rules = """
+            key "" {
+                policy = "read"
+            }
+            key "private/" {
+                policy = "deny"
+            }
+        """
+        token = c.acl.create(rules=rules).recv()
+        pytest.raises(consul.ACLPermissionDenied, c.acl.list(token=token).recv)
+        c.acl.destroy(token).recv() is True
