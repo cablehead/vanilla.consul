@@ -87,8 +87,8 @@ class TestConsul(object):
         assert nodes == []
 
         # ping the two node's health check
-        c.health.check.ttl_pass('service:foo:1').recv()
-        c.health.check.ttl_pass('service:foo:2').recv()
+        c.agent.check.ttl_pass('service:foo:1').recv()
+        c.agent.check.ttl_pass('service:foo:2').recv()
 
         time.sleep(10/1000.0)
 
@@ -104,7 +104,7 @@ class TestConsul(object):
         assert [node['Service']['ID'] for node in nodes] == ['foo:1']
 
         # ping the failed node's health check
-        c.health.check.ttl_pass('service:foo:2').recv()
+        c.agent.check.ttl_pass('service:foo:2').recv()
 
         time.sleep(10/1000.0)
 
@@ -146,7 +146,7 @@ class TestConsul(object):
         assert config.nodes == []
 
         # ping the service's health check
-        c.health.check.ttl_pass('service:foo:1').recv()
+        c.agent.check.ttl_pass('service:foo:1').recv()
         h.sleep(10)
         assert config.nodes == ['foo:1']
 
