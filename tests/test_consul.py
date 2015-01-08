@@ -170,3 +170,77 @@ class TestConsul(object):
         token = c.acl.create(rules=rules).recv()
         pytest.raises(consul.ACLPermissionDenied, c.acl.list(token=token).recv)
         c.acl.destroy(token).recv() is True
+
+
+class TestIndex(object):
+    """
+    Investigate the interplay of Consul's blocking queries
+    """
+    def test_index(self, consul_port):
+        h = vanilla.Hub()
+        c = h.consul(port=consul_port)
+
+        check = h.router().pipe(h.queue(10))
+
+        # blocking calls:
+        # kv.get
+
+        # catalog.nodes
+        # catalog.services
+        # catalog.node
+        # catalog.service
+
+        # health.service
+
+        # session.list
+        # session.node
+        # session.info
+
+        def who(name):
+            def f(x):
+                return name, x
+            return f
+
+        c.kv.put('foo/1', '1').recv()
+        c.kv.put('foo/2', '2').recv()
+
+        c.agent.service.register('s1', ttl='60s').recv()
+        c.agent.service.register('s2', ttl='60s').recv()
+
+        index, _ = c.health.service('s1', passing=True).recv()
+        index, _ = c.health.service('s2', passing=True).recv()
+
+        c.health.service('s1', passing=True, index=index
+            ).map(who('s1')).pipe(check)
+        c.health.service('s2', passing=True, index=index
+            ).map(who('s2')).pipe(check)
+
+        c.agent.check.ttl_pass('service:s1').recv()
+
+        service, got = check.recv()
+        assert service == 's1'
+
+        # NOTE: s2's long poll fires
+        service, got = check.recv()
+        assert service == 's2'
+
+        index, _ = got
+
+        c.health.service('s1', passing=True, index=index
+            ).map(who('s1')).pipe(check)
+        c.health.service('s2', passing=True, index=index
+            ).map(who('s2')).pipe(check)
+
+        pytest.raises(vanilla.Timeout, check.recv, timeout=50)
+
+        c.kv.put('foo/1', '1').recv()
+        h.sleep(50)
+
+        # interesting, putting to the KV doesn't bump the health.service index
+        index2, _ = c.health.service('s1', passing=True).recv()
+        assert index == index2
+        index2, _ = c.kv.get('foo/1').recv()
+        assert index != index2
+
+        # service long polls weren't triggered by the KV put
+        pytest.raises(vanilla.Timeout, check.recv, timeout=50)
