@@ -201,19 +201,25 @@ class TestIndex(object):
                 return name, x
             return f
 
-        c.kv.put('foo/1', '1').recv()
-        c.kv.put('foo/2', '2').recv()
-
         c.agent.service.register('s1', ttl='60s').recv()
         c.agent.service.register('s2', ttl='60s').recv()
 
-        index, _ = c.health.service('s1', passing=True).recv()
-        index, _ = c.health.service('s2', passing=True).recv()
+        index = None
+
+        # wait for index to stabilize
+        while True:
+            try:
+                index, _ = c.health.service('s2', index=index).recv(timeout=50)
+            except vanilla.Timeout:
+                break
 
         c.health.service('s1', passing=True, index=index
             ).map(who('s1')).pipe(check)
         c.health.service('s2', passing=True, index=index
             ).map(who('s2')).pipe(check)
+
+        # check noone is ready to fire
+        pytest.raises(vanilla.Timeout, check.recv, timeout=50)
 
         c.agent.check.ttl_pass('service:s1').recv()
 
@@ -231,6 +237,7 @@ class TestIndex(object):
         c.health.service('s2', passing=True, index=index
             ).map(who('s2')).pipe(check)
 
+        # check noone is ready to fire
         pytest.raises(vanilla.Timeout, check.recv, timeout=50)
 
         c.kv.put('foo/1', '1').recv()
