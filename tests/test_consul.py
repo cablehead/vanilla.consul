@@ -251,3 +251,12 @@ class TestIndex(object):
 
         # service long polls weren't triggered by the KV put
         pytest.raises(vanilla.Timeout, check.recv, timeout=50)
+
+        c.agent.check.ttl_fail('service:s1').recv()
+
+        service, got = check.recv()
+        assert service == 's1'
+
+        # NOTE: s2's long poll fires
+        service, got = check.recv()
+        assert service == 's2'
