@@ -1,2 +1,2 @@
-vanilla==0.0.5
-python-consul==0.3.0
+vanilla==0.1.1
+python-consul==0.3.6
