@@ -1,2 +1,2 @@
-vanilla>=0.1,<0.2
-python-consul>=0.3.6,<=0.4
+vanilla
+python-consul
