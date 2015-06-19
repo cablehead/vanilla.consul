@@ -21,7 +21,7 @@ class HTTPClient(object):
         self.host = host
         self.port = port
         self.scheme = scheme
-        self.base_uri = '%s://%s:%s' % (self.host, self.port, self.scheme)
+        self.base_uri = '%s://%s:%s' % (self.scheme, self.host, self.port)
 
     def response(self, response):
         return base.Response(
