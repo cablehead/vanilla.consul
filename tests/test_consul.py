@@ -213,10 +213,10 @@ class TestIndex(object):
             except vanilla.Timeout:
                 break
 
-        c.health.service('s1', passing=True, index=index
-            ).map(who('s1')).pipe(check)
-        c.health.service('s2', passing=True, index=index
-            ).map(who('s2')).pipe(check)
+        c.health.service(
+            's1', passing=True, index=index).map(who('s1')).pipe(check)
+        c.health.service(
+            's2', passing=True, index=index).map(who('s2')).pipe(check)
 
         # check noone is ready to fire
         pytest.raises(vanilla.Timeout, check.recv, timeout=50)
@@ -232,10 +232,10 @@ class TestIndex(object):
 
         index, _ = got
 
-        c.health.service('s1', passing=True, index=index
-            ).map(who('s1')).pipe(check)
-        c.health.service('s2', passing=True, index=index
-            ).map(who('s2')).pipe(check)
+        c.health.service(
+            's1', passing=True, index=index).map(who('s1')).pipe(check)
+        c.health.service(
+            's2', passing=True, index=index).map(who('s2')).pipe(check)
 
         # check noone is ready to fire
         pytest.raises(vanilla.Timeout, check.recv, timeout=50)
