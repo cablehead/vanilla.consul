@@ -4,6 +4,7 @@ Vanilla Python Consul(.io) Client
 
 from __future__ import absolute_import
 
+from functools import partial
 
 from consul import base
 
@@ -23,20 +24,26 @@ class HTTPClient(object):
         self.scheme = scheme
         self.base_uri = '%s://%s:%s' % (self.scheme, self.host, self.port)
 
-    def response(self, response):
-        return base.Response(
+    def _response(self, conn, callback, response):
+        response = base.Response(
             response.status.code, response.headers, response.consume())
+        response = callback(response)
+        conn.close()
+        return response
+
+    def _map(self, conn, callback):
+        return conn.map(partial(self._response, conn, callback))
 
     def get(self, callback, path, params=None):
-        r = self.hub.http.connect(self.base_uri).get(path, params=params)
-        return r.map(self.response).map(callback)
+        conn = self.hub.http.connect(self.base_uri).get(path, params=params)
+        return self._map(conn, callback)
 
     def put(self, callback, path, params=None, data=''):
-        r = self.hub.http.connect(
+        conn = self.hub.http.connect(
             self.base_uri).put(path, params=params, data=data)
-        return r.map(self.response).map(callback)
+        return self._map(conn, callback)
 
     def delete(self, callback, path, params=None):
-        r = self.hub.http.connect(
+        conn = self.hub.http.connect(
             self.base_uri).delete(path, params=params)
-        return r.map(self.response).map(callback)
+        return self._map(conn, callback)
