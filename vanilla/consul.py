@@ -11,13 +11,19 @@ from consul import base
 
 def __plugin__(hub):
     class Consul(base.Consul):
-        def connect(self, host, port, scheme):
-            return HTTPClient(hub, host, port, scheme)
+        def connect(self, host, port, scheme, verify):
+            return HTTPClient(hub, host, port, scheme, verify)
     return Consul
 
 
 class HTTPClient(object):
-    def __init__(self, hub, host='127.0.0.1', port=8500, scheme='http'):
+    def __init__(
+            self,
+            hub,
+            host='127.0.0.1',
+            port=8500,
+            scheme='http',
+            verify=True):
         self.hub = hub
         self.host = host
         self.port = port
