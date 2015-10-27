@@ -37,19 +37,20 @@ class HTTPClient(object):
         conn.close()
         return response
 
-    def _map(self, conn, callback):
-        return conn.map(partial(self._response, conn, callback))
+    def _map(self, conn, request, callback):
+        return request.map(partial(self._response, conn, callback))
 
     def get(self, callback, path, params=None):
-        conn = self.hub.http.connect(self.base_uri).get(path, params=params)
-        return self._map(conn, callback)
+        conn = self.hub.http.connect(self.base_uri)
+        request = conn.get(path, params=params)
+        return self._map(conn, request, callback)
 
     def put(self, callback, path, params=None, data=''):
-        conn = self.hub.http.connect(
-            self.base_uri).put(path, params=params, data=data)
-        return self._map(conn, callback)
+        conn = self.hub.http.connect(self.base_uri)
+        request = conn.put(path, params=params, data=data)
+        return self._map(conn, request, callback)
 
     def delete(self, callback, path, params=None):
-        conn = self.hub.http.connect(
-            self.base_uri).delete(path, params=params)
-        return self._map(conn, callback)
+        conn = self.hub.http.connect(self.base_uri)
+        request = conn.delete(path, params=params)
+        return self._map(conn, request, callback)
